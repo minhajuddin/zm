@@ -2,11 +2,14 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
+	"time"
 )
 
 var (
@@ -55,7 +58,24 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func uploadHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "Awesome")
+	r.ParseMultipartForm(100 * 1024 * 1024)
+	f, h, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	now := strconv.FormatInt(time.Now().Unix(), 32)
+	tgt, _ := os.Create(dir + "/" + now + "-" + h.Filename)
+	defer tgt.Close()
+	_, err = io.Copy(tgt, f)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprintf(w, "Uploaded successfully. Redirecting to home.<script>setTimeout(function(){window.location='/';}, 1000)</script>")
 }
 
 var uploadForm = `
